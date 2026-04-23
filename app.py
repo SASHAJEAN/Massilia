@@ -3,7 +3,7 @@ import pandas as pd
 import folium
 from streamlit_folium import st_folium
 
-st.set_page_config(page_title="Marseille Food Finder", layout="wide")
+st.set_page_config(page_title="Massilia", layout="wide")
 
 # Sample dataset
 data = [
@@ -19,7 +19,7 @@ df = pd.DataFrame(data)
 if "comments" not in st.session_state:
     st.session_state.comments = []
 
-st.title("🍋 Marseille Food Finder")
+st.title("🍋 Massilia")
 
 # --- FORM ---
 st.header("Find your perfect spot")
