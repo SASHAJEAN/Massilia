@@ -2,16 +2,14 @@ import streamlit as st
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
+import os
 
 st.set_page_config(page_title="Massilia", layout="wide")
 
 # --- STYLE ---
 st.markdown("""
 <style>
-html, body {
-    background-color: #f4efe6;
-    font-family: 'Arial';
-}
+body { background-color:#f4efe6; }
 
 /* NAVBAR */
 .navbar {
@@ -20,37 +18,25 @@ html, body {
     align-items:center;
     padding:10px 20px;
 }
-.logo {
-    font-size:24px;
-    font-weight:bold;
-    color:#1e88e5;
-}
-.cta {
-    background:#ff9800;
-    color:white;
-    padding:8px 15px;
-    border-radius:10px;
-}
+.logo img { height:40px; }
 
 /* HERO */
 .hero {
-    background: linear-gradient(135deg, #1e88e5, #42a5f5);
+    background: linear-gradient(135deg,#1e88e5,#42a5f5);
     padding:50px;
     border-radius:25px;
     color:white;
     margin-bottom:20px;
 }
 
-/* CARDS */
+/* CARD */
 .card {
     background:white;
-    padding:15px;
     border-radius:20px;
+    padding:15px;
     box-shadow:0px 5px 20px rgba(0,0,0,0.08);
     margin-bottom:20px;
 }
-
-/* IMAGE CARD */
 .card img {
     width:100%;
     border-radius:15px;
@@ -64,16 +50,26 @@ html, body {
     border-radius:8px;
     font-size:12px;
 }
+
+/* LIKE */
+.like {
+    color:#e91e63;
+    font-weight:bold;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # --- NAVBAR ---
-st.markdown("""
-<div class="navbar">
-    <div class="logo">🍋 Massilia</div>
-    <div class="cta">Get Started</div>
-</div>
-""", unsafe_allow_html=True)
+logo_path = "assets/logo.png"
+if os.path.exists(logo_path):
+    st.markdown(f"""
+    <div class="navbar">
+        <div class="logo"><img src="data:image/png;base64,{st.image(logo_path)._repr_html_()}"></div>
+        <div style="background:#ff9800;color:white;padding:8px 15px;border-radius:10px;">Get Started</div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("<h2>🍋 Massilia</h2>", unsafe_allow_html=True)
 
 # --- DATA ---
 data = [
@@ -108,14 +104,19 @@ data = [
 
 df = pd.DataFrame(data)
 
+# --- SESSION STATE ---
 if "comments" not in st.session_state:
     st.session_state.comments = []
+if "likes" not in st.session_state:
+    st.session_state.likes = {}
+if "favorites" not in st.session_state:
+    st.session_state.favorites = []
 
 # --- HERO ---
 st.markdown("""
 <div class="hero">
-    <h1>Pas fâché avec <span style="color:#ffeb3b;">le plaisir</span></h1>
-    <p>Discover the best places in Marseille with community tips & deals.</p>
+<h1>Pas fâché avec <span style="color:#ffeb3b;">le plaisir</span></h1>
+<p>Find the best Marseille spots with deals & community tips.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -129,27 +130,33 @@ with col1:
     for _, row in df.iterrows():
         folium.Marker(
             [row["lat"], row["lon"]],
-            popup=row["name"]
+            popup=f"{row['name']} (€{row['price']})"
         ).add_to(m)
     st_folium(m, height=400)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# FILTER
+# FILTER PANEL
 with col2:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     with st.form("filter"):
         specialty = st.selectbox("Specialty", ["Pastis", "Panisse", "Fougasse"])
-        submit = st.form_submit_button("Search")
+        budget = st.slider("Budget", 1, 15, 7)
+        submitted = st.form_submit_button("Apply")
     st.markdown('</div>', unsafe_allow_html=True)
 
-if submit:
-    df = df[df["specialty"] == specialty]
+if submitted:
+    df = df[(df["specialty"] == specialty) & (df["price"] <= budget)]
 
 # --- CARDS ---
 st.subheader("🔥 Best Spots")
 cols = st.columns(3)
 
 for i, row in df.iterrows():
+    key = row["name"]
+
+    if key not in st.session_state.likes:
+        st.session_state.likes[key] = 0
+
     with cols[i % 3]:
         st.markdown(f"""
         <div class="card">
@@ -159,6 +166,22 @@ for i, row in df.iterrows():
             <span class="badge">{row['deal']}</span>
         </div>
         """, unsafe_allow_html=True)
+
+        colA, colB = st.columns(2)
+
+        with colA:
+            if st.button(f"❤️ {st.session_state.likes[key]}", key=f"like_{key}"):
+                st.session_state.likes[key] += 1
+
+        with colB:
+            if st.button("⭐ Save", key=f"fav_{key}"):
+                if key not in st.session_state.favorites:
+                    st.session_state.favorites.append(key)
+
+# --- FAVORITES ---
+if st.session_state.favorites:
+    st.subheader("⭐ Your Favorites")
+    st.write(", ".join(st.session_state.favorites))
 
 # --- COMMUNITY ---
 st.subheader("💬 Community")
@@ -182,8 +205,8 @@ for i, c in enumerate(reversed(st.session_state.comments)):
             st.image(c["img"])
         st.markdown('</div>', unsafe_allow_html=True)
 
-# FOOTER
+# --- FOOTER ---
 st.markdown("""
 <hr>
-<p style="text-align:center; color:gray;">🌊 Massilia — Explore Marseille like a local</p>
+<p style="text-align:center;color:gray;">🌊 Massilia — Explore Marseille like a local</p>
 """, unsafe_allow_html=True)
